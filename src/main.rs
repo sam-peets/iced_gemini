@@ -60,18 +60,22 @@ impl Counter {
             Message::UriChanged(uri) => {
                 self.uri = uri;
             }
-            Message::LoadPage(u) => {
-                self.uri = u.to_string();
-                let res = load_page(&u).unwrap();
-                self.document = Document::parse(&u, &res.body.unwrap()).ok();
+            Message::LoadPage(url) => {
+                log::info!("GoButtonPressed: opening scheme: {:?}", url.scheme());
+                if url.scheme() != "gemini" {
+                    opener::open(url.to_string()).expect("Failed to open");
+                    return Task::none();
+                }
+                self.uri = url.to_string();
+                let res = load_page(&url).unwrap();
+                self.document = Document::parse(&url, &res.body.unwrap()).ok();
             }
             Message::ButtonPressed(page) => {
                 // TODO: add to history, etc.
                 return Task::done(Message::LoadPage(page));
             }
             Message::GoButtonPressed => {
-                let mut url = Url::parse(&self.uri).unwrap();
-                url.set_scheme("gemini").unwrap();
+                let url = Url::parse(&self.uri).unwrap();
                 return Task::done(Message::LoadPage(url));
             }
         }
