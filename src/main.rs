@@ -4,12 +4,13 @@ mod net;
 use std::str::FromStr;
 
 use iced::widget::{
-    Column, Container, Row, button, column, container, scrollable, text, text_input,
+    Column, Container, Row, Text, button, column, container, scrollable, text, text_input,
 };
 use iced::{Center, Element, Task};
 use rustls::crypto::CryptoProvider;
+use url::Url;
 
-use crate::gemini::gemtext::Document;
+use crate::gemini::gemtext::{Document, Line};
 use crate::gemini::response::{self, Response};
 use crate::net::tofu_cert_verifier::TofuCertVerifier;
 use crate::net::tofu_socket::TofuSocket;
@@ -23,10 +24,10 @@ pub fn main() -> iced::Result {
     iced::run("iced out gemini", Counter::update, Counter::view)
 }
 
-fn load_page(url: &str) -> anyhow::Result<Response> {
+fn load_page(url: &Url) -> anyhow::Result<Response> {
     log::info!("load_page: {url}");
     let mut sock = TofuSocket::new(
-        url,
+        url.clone(),
         TofuCertVerifier::new(
             CryptoProvider::get_default()
                 .unwrap()
@@ -42,13 +43,15 @@ fn load_page(url: &str) -> anyhow::Result<Response> {
 #[derive(Default)]
 struct Counter {
     uri: String,
-    document: Document,
+    document: Option<Document>,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     UriChanged(String),
-    LoadPage,
+    LoadPage(Url),
+    ButtonPressed(Url), // current page, path
+    GoButtonPressed,
 }
 
 impl Counter {
@@ -57,10 +60,19 @@ impl Counter {
             Message::UriChanged(uri) => {
                 self.uri = uri;
             }
-            Message::LoadPage => {
-                let res = load_page(&self.uri).unwrap();
-                log::info!("res: {res:?}");
-                self.document = Document::parse(&res.body.unwrap()).unwrap();
+            Message::LoadPage(u) => {
+                self.uri = u.to_string();
+                let res = load_page(&u).unwrap();
+                self.document = Document::parse(&u, &res.body.unwrap()).ok();
+            }
+            Message::ButtonPressed(page) => {
+                // TODO: add to history, etc.
+                return Task::done(Message::LoadPage(page));
+            }
+            Message::GoButtonPressed => {
+                let mut url = Url::parse(&self.uri).unwrap();
+                url.set_scheme("gemini").unwrap();
+                return Task::done(Message::LoadPage(url));
             }
         }
         Task::none()
@@ -69,17 +81,29 @@ impl Counter {
     fn url_bar(&self) -> Row<'_, Message> {
         Row::new()
             .push(text_input("uri", &self.uri).on_input(Message::UriChanged))
-            .push(button("Go").on_press(Message::LoadPage))
+            .push(button("Go").on_press(Message::GoButtonPressed))
     }
 
     fn body(&self) -> Element<'_, Message> {
-        scrollable(
-            container(Column::from_vec(
-                self.document.lines.iter().map(|l| l.view()).collect(),
-            ))
-            .padding(20),
-        )
-        .into()
+        if let Some(doc) = &self.document {
+            scrollable(
+                container(Column::from_vec(
+                    doc.lines
+                        .iter()
+                        .map(|l| {
+                            l.view(|l| match l {
+                                Line::Link(url, _) => Message::ButtonPressed(url.clone()),
+                                _ => unreachable!(),
+                            })
+                        })
+                        .collect(),
+                ))
+                .padding(20),
+            )
+            .into()
+        } else {
+            text("no page").into()
+        }
     }
 
     fn view(&self) -> Column<'_, Message> {
