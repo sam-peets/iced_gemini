@@ -1,4 +1,5 @@
-use iced::{Element, widget::text};
+use iced::{Color, Element, widget::text};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Default)]
 pub struct Document {
@@ -22,18 +23,29 @@ impl Document {
 #[derive(Debug, Clone)]
 pub enum Line {
     Text(String),
-    Link(http::Uri, Option<String>), // URL, friendly name
+    Link(String, Option<String>), // URL, friendly name
     Heading(isize, String),
     List(),
     Quote(),
     Toggle(),
 }
 
+#[derive(Error, Debug)]
+pub enum LineParsingError {
+    #[error("malformed link line: missing URI")]
+    MissingUri,
+}
 impl Line {
+    fn view_link<Message>(&self, uri: &String, friendly: &Option<String>) -> Element<'_, Message> {
+        text(friendly.clone().unwrap_or(uri.to_string()))
+            .color(Color::from_rgb(0.1, 0.1, 0.8))
+            .into()
+    }
+
     pub fn view<Message>(&self) -> Element<'_, Message> {
         match self {
-            Line::Text(s) => text(s),
-            Line::Link(uri, friendly) => text(friendly.clone().unwrap_or(uri.to_string())),
+            Line::Text(s) => Element::new(text(s)),
+            Line::Link(uri, friendly) => self.view_link(uri, friendly),
             Line::Heading(_, _) => todo!(),
             Line::List() => todo!(),
             Line::Quote() => todo!(),
@@ -48,13 +60,13 @@ impl Line {
         let mut spl = line.splitn(3, ' ');
         spl.next(); // skip =>
         Ok(Line::Link(
-            spl.next().unwrap().parse()?,
+            spl.next().ok_or(LineParsingError::MissingUri)?.to_string(),
             spl.next().and_then(|x| Some(x.to_string())),
         ))
     }
 
     pub fn parse(line: &str) -> anyhow::Result<Self> {
-        log::info!("Line: parsing {line}");
+        log::trace!("Line: parsing {line}");
         match line {
             x if x.starts_with("=>") => Line::parse_link(line),
             x => Ok(Line::Text(x.to_string())),

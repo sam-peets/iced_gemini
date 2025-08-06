@@ -3,7 +3,7 @@ mod net;
 
 use std::str::FromStr;
 
-use iced::widget::{Column, Container, Row, button, column, text, text_input};
+use iced::widget::{Column, Container, Row, button, column, scrollable, text, text_input};
 use iced::{Center, Element, Task};
 use rustls::crypto::CryptoProvider;
 
@@ -71,7 +71,10 @@ impl Counter {
     }
 
     fn body(&self) -> Element<'_, Message> {
-        Column::from_vec(self.document.lines.iter().map(|l| l.view()).collect()).into()
+        scrollable(Column::from_vec(
+            self.document.lines.iter().map(|l| l.view()).collect(),
+        ))
+        .into()
     }
 
     fn view(&self) -> Column<'_, Message> {
