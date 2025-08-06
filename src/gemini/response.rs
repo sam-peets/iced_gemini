@@ -13,17 +13,25 @@ pub enum ResponseError {
 pub struct Response {
     pub status: Status,
     pub ctx: Option<String>,
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
 }
 
-impl FromStr for Response {
-    type Err = ResponseError;
+impl TryFrom<&[u8]> for Response {
+    type Error = ResponseError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (status, body) = s.split_once("\r\n").ok_or(ResponseError::ParsingError(
-            "no CRLF in response".to_string(),
-        ))?;
-
+    fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
+        let mut spl = s.splitn(2, |x| *x == b'\n');
+        let status = String::from_utf8(
+            spl.next()
+                .ok_or(ResponseError::ParsingError(
+                    "No status line in response".into(),
+                ))?
+                .to_vec(),
+        )
+        .map_err(|e| ResponseError::ParsingError(e.to_string()))?;
+        let body = spl
+            .next()
+            .ok_or(ResponseError::ParsingError("No body in response".into()))?;
         let mut spl = status.splitn(2, ' ');
 
         let status = spl
@@ -35,7 +43,7 @@ impl FromStr for Response {
         Ok(Response {
             status,
             ctx: spl.next().map(|s| s.to_string()),
-            body: Some(body.to_string()),
+            body: Some(body.to_vec()),
         })
     }
 }

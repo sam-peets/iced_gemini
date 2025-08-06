@@ -1,19 +1,14 @@
-pub mod gemini;
+mod gemini;
 mod net;
-
-use std::str::FromStr;
+mod ui;
 
 use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::{Column, Row, button, column, container, scrollable, text, text_input};
-use iced::{Element, Font, Task, application};
-use rustls::crypto::CryptoProvider;
+use iced::{Element, Task, application};
 use url::Url;
 
 use crate::gemini::client::Client;
 use crate::gemini::gemtext::{Document, Line};
-use crate::gemini::response::{self, Response};
-use crate::net::tofu_cert_verifier::TofuCertVerifier;
-use crate::net::tofu_socket::TofuSocket;
 
 pub fn main() -> iced::Result {
     env_logger::init();
@@ -30,7 +25,7 @@ struct GeminiClient {
     uri: String,
     document: Option<Document>,
     client: Client,
-    scrollId: scrollable::Id,
+    scroll_id: scrollable::Id,
 }
 
 impl Default for GeminiClient {
@@ -39,7 +34,7 @@ impl Default for GeminiClient {
             uri: Default::default(),
             document: Default::default(),
             client: Default::default(),
-            scrollId: scrollable::Id::unique(),
+            scroll_id: scrollable::Id::unique(),
         }
     }
 }
@@ -51,6 +46,7 @@ enum Message {
     Loaded(Url, Option<Document>),
     ButtonPressed(Url), // current page, path
     GoButtonPressed,
+    Error(String),
 }
 
 impl GeminiClient {
@@ -62,20 +58,21 @@ impl GeminiClient {
             Message::PageLoad(url) => {
                 log::info!("GoButtonPressed: opening scheme: {:?}", url.scheme());
                 if url.scheme() != "gemini" {
-                    opener::open(url.to_string()).expect("Failed to open");
+                    if let Err(e) = opener::open(url.to_string()) {
+                        return Task::done(Message::Error(e.to_string()));
+                    }
                     return Task::none();
                 }
+
                 let load_task = {
                     let url = url.clone();
                     let client = self.client;
-                    Task::future(async move {
-                        let (url, response) = client.request(&url).await.unwrap();
-                        let document = Document::parse(&url, &response.body.unwrap()).ok();
-                        Message::Loaded(url, document)
-                    })
+                    Task::future(async move { client.load_page(&url).await })
                 };
-                let scroll_task =
-                    scrollable::scroll_to(self.scrollId.clone(), AbsoluteOffset { x: 0.0, y: 0.0 });
+                let scroll_task = scrollable::scroll_to(
+                    self.scroll_id.clone(),
+                    AbsoluteOffset { x: 0.0, y: 0.0 },
+                );
                 return Task::batch([load_task, scroll_task]);
             }
             Message::ButtonPressed(page) => {
@@ -83,12 +80,18 @@ impl GeminiClient {
                 return Task::done(Message::PageLoad(page));
             }
             Message::GoButtonPressed => {
-                let url = Url::parse(&self.uri).unwrap();
-                return Task::done(Message::PageLoad(url));
+                return match Url::parse(&self.uri) {
+                    Ok(url) => Task::done(Message::PageLoad(url)),
+                    Err(e) => Task::done(Message::Error(e.to_string())),
+                };
             }
             Message::Loaded(url, document) => {
                 self.uri = url.to_string();
                 self.document = document;
+            }
+            Message::Error(e) => {
+                // TODO - client error handling, maybe a modal?
+                log::error!("Error: {e:?}");
             }
         }
         Task::none()
@@ -116,7 +119,7 @@ impl GeminiClient {
                 ))
                 .padding(20),
             )
-            .id(self.scrollId.clone())
+            .id(self.scroll_id.clone())
             .width(iced::Fill)
             .height(iced::Fill)
             .into()

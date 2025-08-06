@@ -41,12 +41,11 @@ impl TofuSocket {
             .to_string()
             .try_into()?;
 
-        let client = rustls::ClientConnection::new(Arc::new(config), server_name).unwrap();
+        let client = rustls::ClientConnection::new(Arc::new(config), server_name)?;
         let sock = TcpStream::connect((
             host.host().unwrap().to_string(),
             host.port().unwrap_or(1965),
-        ))
-        .unwrap();
+        ))?;
 
         Ok(TofuSocket { client, sock })
     }
