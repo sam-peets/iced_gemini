@@ -1,4 +1,7 @@
-use iced::{Color, Element, widget::text};
+use iced::{
+    Color, Element,
+    widget::{button, text},
+};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Default)]
@@ -24,7 +27,7 @@ impl Document {
 pub enum Line {
     Text(String),
     Link(String, Option<String>), // URL, friendly name
-    Heading(isize, String),
+    Heading(usize, String),
     List(),
     Quote(),
     Toggle(),
@@ -36,17 +39,19 @@ pub enum LineParsingError {
     MissingUri,
 }
 impl Line {
-    fn view_link<Message>(&self, uri: &String, friendly: &Option<String>) -> Element<'_, Message> {
-        text(friendly.clone().unwrap_or(uri.to_string()))
-            .color(Color::from_rgb(0.1, 0.1, 0.8))
-            .into()
+    fn view_link<'a, Message: Clone + 'a>(
+        &'a self,
+        uri: &String,
+        friendly: &Option<String>,
+    ) -> Element<'a, Message> {
+        button(text(friendly.clone().unwrap_or(uri.to_string()))).into()
     }
 
-    pub fn view<Message>(&self) -> Element<'_, Message> {
+    pub fn view<'a, Message: Clone + 'a>(&'a self) -> Element<'a, Message> {
         match self {
             Line::Text(s) => Element::new(text(s)),
             Line::Link(uri, friendly) => self.view_link(uri, friendly),
-            Line::Heading(_, _) => todo!(),
+            Line::Heading(level, s) => Element::new(text(s).size(40.0 / *level as f32)),
             Line::List() => todo!(),
             Line::Quote() => todo!(),
             Line::Toggle() => todo!(),
@@ -65,10 +70,17 @@ impl Line {
         ))
     }
 
+    fn parse_header(line: &str) -> anyhow::Result<Self> {
+        let hashes = line.chars().take_while(|&c| c == '#').count();
+        let rest = line[hashes..].trim_start();
+        Ok(Line::Heading(hashes, rest.to_string()))
+    }
+
     pub fn parse(line: &str) -> anyhow::Result<Self> {
         log::trace!("Line: parsing {line}");
         match line {
             x if x.starts_with("=>") => Line::parse_link(line),
+            x if x.starts_with("#") => Line::parse_header(line),
             x => Ok(Line::Text(x.to_string())),
         }
     }
