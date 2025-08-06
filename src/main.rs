@@ -3,11 +3,13 @@ mod net;
 
 use std::str::FromStr;
 
+use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::{Column, Row, button, column, container, scrollable, text, text_input};
-use iced::{Element, Task};
+use iced::{Element, Font, Task, application};
 use rustls::crypto::CryptoProvider;
 use url::Url;
 
+use crate::gemini::client::Client;
 use crate::gemini::gemtext::{Document, Line};
 use crate::gemini::response::{self, Response};
 use crate::net::tofu_cert_verifier::TofuCertVerifier;
@@ -19,62 +21,74 @@ pub fn main() -> iced::Result {
         .install_default()
         .expect("Failed to install default crypto provider");
 
-    iced::run("iced out gemini", Counter::update, Counter::view)
+    let app = application("iced out", GeminiClient::update, GeminiClient::view);
+    // .default_font(Font::with_name("Times New Roman"));
+    app.run()
 }
 
-fn load_page(url: &Url) -> anyhow::Result<Response> {
-    log::info!("load_page: {url}");
-    let mut sock = TofuSocket::new(
-        url.clone(),
-        TofuCertVerifier::new(
-            CryptoProvider::get_default()
-                .unwrap()
-                .signature_verification_algorithms,
-        ),
-    )?;
-
-    let res = sock.request(format!("{url}\r\n").as_bytes())?;
-
-    Ok(response::Response::from_str(str::from_utf8(&res)?)?)
-}
-
-#[derive(Default)]
-struct Counter {
+struct GeminiClient {
     uri: String,
     document: Option<Document>,
+    client: Client,
+    scrollId: scrollable::Id,
+}
+
+impl Default for GeminiClient {
+    fn default() -> Self {
+        Self {
+            uri: Default::default(),
+            document: Default::default(),
+            client: Default::default(),
+            scrollId: scrollable::Id::unique(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     UriChanged(String),
-    LoadPage(Url),
+    PageLoad(Url),
+    Loaded(Url, Option<Document>),
     ButtonPressed(Url), // current page, path
     GoButtonPressed,
 }
 
-impl Counter {
+impl GeminiClient {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::UriChanged(uri) => {
                 self.uri = uri;
             }
-            Message::LoadPage(url) => {
+            Message::PageLoad(url) => {
                 log::info!("GoButtonPressed: opening scheme: {:?}", url.scheme());
                 if url.scheme() != "gemini" {
                     opener::open(url.to_string()).expect("Failed to open");
                     return Task::none();
                 }
-                self.uri = url.to_string();
-                let res = load_page(&url).unwrap();
-                self.document = Document::parse(&url, &res.body.unwrap()).ok();
+                let load_task = {
+                    let url = url.clone();
+                    let client = self.client;
+                    Task::future(async move {
+                        let (url, response) = client.request(&url).await.unwrap();
+                        let document = Document::parse(&url, &response.body.unwrap()).ok();
+                        Message::Loaded(url, document)
+                    })
+                };
+                let scroll_task =
+                    scrollable::scroll_to(self.scrollId.clone(), AbsoluteOffset { x: 0.0, y: 0.0 });
+                return Task::batch([load_task, scroll_task]);
             }
             Message::ButtonPressed(page) => {
                 // TODO: add to history, etc.
-                return Task::done(Message::LoadPage(page));
+                return Task::done(Message::PageLoad(page));
             }
             Message::GoButtonPressed => {
                 let url = Url::parse(&self.uri).unwrap();
-                return Task::done(Message::LoadPage(url));
+                return Task::done(Message::PageLoad(url));
+            }
+            Message::Loaded(url, document) => {
+                self.uri = url.to_string();
+                self.document = document;
             }
         }
         Task::none()
@@ -102,6 +116,7 @@ impl Counter {
                 ))
                 .padding(20),
             )
+            .id(self.scrollId.clone())
             .width(iced::Fill)
             .height(iced::Fill)
             .into()

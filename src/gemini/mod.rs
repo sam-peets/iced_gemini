@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+pub mod client;
 pub mod gemtext;
 pub mod response;
 

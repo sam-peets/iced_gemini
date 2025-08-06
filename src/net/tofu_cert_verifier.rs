@@ -3,7 +3,7 @@ use rustls::{
     crypto::{WebPkiSupportedAlgorithms, verify_tls12_signature, verify_tls13_signature},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct TofuCertVerifier {
     support: WebPkiSupportedAlgorithms,
 }
