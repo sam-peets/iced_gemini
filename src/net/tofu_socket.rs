@@ -10,7 +10,7 @@ use url::Url;
 use crate::net::tofu_cert_verifier::TofuCertVerifier;
 
 static ROOT_CERT_STORE: LazyLock<RootCertStore> =
-    LazyLock::new(|| RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned()));
+    LazyLock::new(|| webpki_roots::TLS_SERVER_ROOTS.iter().cloned().collect());
 
 #[derive(Debug)]
 pub struct TofuSocket {

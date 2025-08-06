@@ -3,10 +3,8 @@ mod net;
 
 use std::str::FromStr;
 
-use iced::widget::{
-    Column, Container, Row, Text, button, column, container, scrollable, text, text_input,
-};
-use iced::{Center, Element, Task};
+use iced::widget::{Column, Row, button, column, container, scrollable, text, text_input};
+use iced::{Element, Task};
 use rustls::crypto::CryptoProvider;
 use url::Url;
 
@@ -104,6 +102,8 @@ impl Counter {
                 ))
                 .padding(20),
             )
+            .width(iced::Fill)
+            .height(iced::Fill)
             .into()
         } else {
             text("no page").into()

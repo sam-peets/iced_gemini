@@ -34,7 +34,7 @@ impl FromStr for Response {
 
         Ok(Response {
             status,
-            ctx: spl.next().and_then(|s| Some(s.to_string())),
+            ctx: spl.next().map(|s| s.to_string()),
             body: Some(body.to_string()),
         })
     }

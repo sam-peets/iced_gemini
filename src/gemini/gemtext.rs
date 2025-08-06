@@ -1,8 +1,8 @@
 use std::any;
 
 use iced::{
-    Color, Element, Font,
-    widget::{button, text, tooltip},
+    Border, Element, Font, padding,
+    widget::{Container, button, container, text, tooltip},
 };
 use thiserror::Error;
 use url::Url;
@@ -55,7 +55,7 @@ pub enum Line {
     Link(Url, Option<String>), // URL, friendly name
     Heading(usize, String),
     List(String),
-    Quote(),
+    Quote(String),
     Toggle(String),
     PreFormatted(String),
 }
@@ -70,12 +70,12 @@ pub enum LineParsingError {
 impl Line {
     fn view_link<'a, Message: Clone + 'a>(
         &'a self,
-        url: &Url,
-        friendly: &Option<String>,
+        url: &'a Url,
+        friendly: Option<&'a str>,
         on_press: fn(&Line) -> Message,
     ) -> Element<'a, Message> {
         tooltip(
-            button(text(friendly.clone().unwrap_or(url.to_string())))
+            button(text(friendly.unwrap_or(url.as_str())))
                 .on_press_with(move || on_press(&self.clone())),
             text(url.to_string()),
             tooltip::Position::Right,
@@ -90,10 +90,10 @@ impl Line {
         let sizes = [40, 30, 20];
         match self {
             Line::Text(s) => Element::new(text(s)),
-            Line::Link(url, friendly) => self.view_link(url, friendly, on_press),
+            Line::Link(url, friendly) => self.view_link(url, friendly.as_deref(), on_press),
             Line::Heading(level, s) => Element::new(text(s).size(sizes[*level - 1])),
             Line::List(s) => Element::new(text(format!(" • {s}"))),
-            Line::Quote() => todo!(),
+            Line::Quote(s) => Element::new(Container::new(text(s)).padding(padding::left(10))),
             Line::PreFormatted(s) => Element::new(text(s).font(Font::MONOSPACE)),
             Line::Toggle(_) => unreachable!(),
         }
@@ -102,7 +102,6 @@ impl Line {
     fn parse_link(current_url: &Url, line: &str) -> anyhow::Result<Self> {
         let line = &line[2..]; // we don't care about the =>
         let mut spl = line.trim().splitn(2, char::is_whitespace);
-        println!("{spl:?}");
         let uri = spl
             .next()
             .ok_or(LineParsingError::MissingUri)?
@@ -129,6 +128,13 @@ impl Line {
 
     fn parse_toggle(line: &str) -> anyhow::Result<Self> {
         Ok(Line::Toggle(line[3..].to_string()))
+    }
+
+    fn parse_quote(line: &str) -> anyhow::Result<Self> {
+        let (_, l) = line
+            .split_once(char::is_whitespace)
+            .ok_or(LineParsingError::Other("No text after bullet".to_string()))?;
+        Ok(Line::Quote(l.to_string()))
     }
 
     pub fn parse(current_url: &Url, line: &str) -> anyhow::Result<Self> {
