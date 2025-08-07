@@ -10,6 +10,7 @@ use url::Url;
 
 use crate::gemini::client::Client;
 use crate::gemini::gemtext::{Document, Line};
+use crate::ui::gemini_text::GeminiText;
 
 pub fn main() -> iced::Result {
     env_logger::init();
@@ -108,6 +109,11 @@ impl GeminiClient {
                 log::error!("Error: {e:?}");
             }
             Message::BackButtonPressed => {
+                log::info!(
+                    "BackButtonPressed: history_back: {:?}, history_forward: {:?}",
+                    self.history_back,
+                    self.history_forward
+                );
                 if let Some((prev_doc, pos)) = self.history_back.pop() {
                     if let Some(current_doc) = self.document.clone() {
                         self.history_forward
@@ -120,6 +126,11 @@ impl GeminiClient {
                 }
             }
             Message::ForwardButtonPressed => {
+                log::info!(
+                    "ForwardButtonPressed: history_back: {:?}, history_forward: {:?}",
+                    self.history_back,
+                    self.history_forward
+                );
                 if let Some((next_doc, pos)) = self.history_forward.pop() {
                     if let Some(current_doc) = self.document.clone() {
                         self.history_back.push((current_doc, self.scroll_position));
@@ -139,26 +150,20 @@ impl GeminiClient {
 
     fn url_bar(&self) -> Row<'_, Message> {
         Row::new()
-            .push(button("<-").on_press(Message::BackButtonPressed))
-            .push(button("->").on_press(Message::ForwardButtonPressed))
+            .push(button(GeminiText::new("⬅️").view()).on_press(Message::BackButtonPressed))
+            .push(button(GeminiText::new("➡️").view()).on_press(Message::ForwardButtonPressed))
             .push(text_input("uri", &self.uri).on_input(Message::UriChanged))
             .push(button("Go").on_press(Message::GoButtonPressed))
     }
 
     fn body(&self) -> Element<'_, Message> {
         if let Some(doc) = &self.document {
-            scrollable(
-                container(doc.view(|l| match l {
-                    Line::Link(url, _) => Message::ButtonPressed(url.clone()),
-                    _ => unreachable!(),
-                }))
-                .padding(20),
-            )
-            .on_scroll(|v| Message::Scrolled(v.absolute_offset()))
-            .id(self.scroll_id.clone())
-            .width(iced::Fill)
-            .height(iced::Fill)
-            .into()
+            scrollable(container(doc.view(|url| Message::ButtonPressed(url.clone()))).padding(20))
+                .on_scroll(|v| Message::Scrolled(v.absolute_offset()))
+                .id(self.scroll_id.clone())
+                .width(iced::Fill)
+                .height(iced::Fill)
+                .into()
         } else {
             text("no page").into()
         }

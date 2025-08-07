@@ -5,6 +5,8 @@ use iced::{
 use thiserror::Error;
 use url::Url;
 
+use crate::ui::{gemini_link::GeminiLink, gemini_text::GeminiText};
+
 #[derive(Debug, Clone)]
 pub struct Document {
     pub lines: Vec<Line>,
@@ -14,9 +16,15 @@ pub struct Document {
 impl Document {
     pub fn view<'a, Message: Clone + 'a>(
         &'a self,
-        on_press: fn(&Line) -> Message,
+        on_press_link: fn(&Url) -> Message,
     ) -> Element<'a, Message> {
-        Column::from_vec(self.lines.iter().map(|line| line.view(on_press)).collect()).into()
+        Column::from_vec(
+            self.lines
+                .iter()
+                .map(|line| line.view(on_press_link))
+                .collect(),
+        )
+        .into()
     }
     pub fn parse(url: &Url, doc: &str) -> anyhow::Result<Self> {
         let mut state = ParserMode::Normal;
@@ -77,39 +85,25 @@ impl Line {
         &'a self,
         url: &'a Url,
         friendly: Option<&'a str>,
-        on_press: fn(&Line) -> Message,
+        on_press: fn(&Url) -> Message,
     ) -> Element<'a, Message> {
-        tooltip(
-            button(text(friendly.unwrap_or(url.as_str())).shaping(text::Shaping::Advanced))
-                .on_press_with(move || on_press(&self.clone())),
-            text(url.to_string()).shaping(text::Shaping::Advanced),
-            tooltip::Position::Right,
-        )
-        .into()
+        GeminiLink::new(url.clone(), friendly.map(str::to_string), on_press).view()
     }
 
     pub fn view<'a, Message: Clone + 'a>(
         &'a self,
-        on_press: fn(&Line) -> Message,
+        on_press_link: fn(&Url) -> Message,
     ) -> Element<'a, Message> {
         let sizes = [40, 30, 20];
         match self {
-            Line::Text(s) => Element::new(text(s).shaping(text::Shaping::Advanced)),
-            Line::Link(url, friendly) => self.view_link(url, friendly.as_deref(), on_press),
-            Line::Heading(level, s) => Element::new(
-                text(s)
-                    .size(sizes[*level - 1])
-                    .shaping(text::Shaping::Advanced),
-            ),
-            Line::List(s) => Element::new(text(format!(" • {s}")).shaping(text::Shaping::Advanced)),
-            Line::Quote(s) => Element::new(
-                Container::new(text(s).shaping(text::Shaping::Advanced)).padding(padding::left(10)),
-            ),
-            Line::PreFormatted(s) => Element::new(
-                text(s)
-                    .font(Font::MONOSPACE)
-                    .shaping(text::Shaping::Advanced),
-            ),
+            Line::Text(s) => GeminiText::new(s).view(),
+            Line::Link(url, friendly) => self.view_link(url, friendly.as_deref(), on_press_link),
+            Line::Heading(level, s) => GeminiText::new(s).size(sizes[*level - 1]).view(),
+            Line::List(s) => GeminiText::new(&format!(" • {s}")).view(),
+            Line::Quote(s) => {
+                Element::new(Container::new(GeminiText::new(s).view()).padding(padding::left(10)))
+            }
+            Line::PreFormatted(s) => GeminiText::new(s).font(Font::MONOSPACE).view(),
             Line::Toggle(_) => unreachable!(),
             Line::Image(handle) => Element::new(iced::widget::image(handle)),
         }

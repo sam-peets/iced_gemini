@@ -87,7 +87,7 @@ impl Client {
 
         match response.status {
             Status::Success => self.success(url, response).await,
-            _ => return Message::Error(format!("got bad status: {response:?}")),
+            _ => Message::Error(format!("got bad status: {response:?}")),
         }
     }
 
