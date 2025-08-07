@@ -4,6 +4,8 @@ This is a graphical client for the [Gemini Protocol](https://geminiprotocol.net/
 
 This is primarily a learning exercise. While functional, this client is NOT feature-complete and isn't a great choice for regular browsing.
 
+<img width="1280" height="960" alt="image" src="https://github.com/user-attachments/assets/8010dd02-13ee-48d7-a5af-a604a24d6e3c" />
+
 ## Features
 
 - Gemtext rendering
