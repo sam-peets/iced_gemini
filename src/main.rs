@@ -6,6 +6,7 @@ use iced::advanced::widget::operation::scrollable::scroll_to;
 use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::{Column, Row, button, column, container, scrollable, text, text_input};
 use iced::{Element, Font, Task, application};
+use log::info;
 use url::Url;
 
 use crate::gemini::client::Client;
@@ -20,7 +21,12 @@ pub fn main() -> iced::Result {
 
     let app = application("iced out", GeminiClient::update, GeminiClient::view)
         .default_font(Font::with_name("Arial"));
-    app.run()
+    app.run_with(|| {
+        let t = Task::done(Message::PageLoad(
+            url::Url::parse("gemini://geminiprotocol.net/").expect("Should never fail"),
+        ));
+        (GeminiClient::default(), t)
+    })
 }
 
 struct GeminiClient {
@@ -74,7 +80,11 @@ impl GeminiClient {
                     }
                     return Task::none();
                 }
-
+                if let Some(doc) = self.document.clone() {
+                    log::info!("PageLoad: adding {:?} to history", doc.url);
+                    self.history_back.push((doc, self.scroll_position));
+                    self.history_forward.clear();
+                }
                 let load_task = {
                     let url = url.clone();
                     let client = self.client;
@@ -87,11 +97,6 @@ impl GeminiClient {
                 return Task::batch([load_task, scroll_task]);
             }
             Message::ButtonPressed(page) => {
-                // TODO: add to history, etc.
-                if let Some(doc) = self.document.clone() {
-                    self.history_back.push((doc, self.scroll_position));
-                    self.history_forward.clear();
-                }
                 return Task::done(Message::PageLoad(page));
             }
             Message::GoButtonPressed => {

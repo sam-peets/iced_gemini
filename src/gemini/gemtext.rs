@@ -130,10 +130,8 @@ impl Line {
     }
 
     fn parse_list(line: &str) -> anyhow::Result<Self> {
-        let (_, l) = line
-            .split_once(char::is_whitespace)
-            .ok_or(LineParsingError::Other("No text after bullet".to_string()))?;
-        Ok(Line::List(l.to_string()))
+        let line = line[1..].trim(); // everything after the `*`
+        Ok(Line::List(line.to_string()))
     }
 
     fn parse_toggle(line: &str) -> anyhow::Result<Self> {
@@ -141,10 +139,8 @@ impl Line {
     }
 
     fn parse_quote(line: &str) -> anyhow::Result<Self> {
-        let (_, l) = line
-            .split_once(char::is_whitespace)
-            .ok_or(LineParsingError::Other("No text after bullet".to_string()))?;
-        Ok(Line::Quote(l.to_string()))
+        let line = line[1..].trim(); // everything after the `>`
+        Ok(Line::Quote(line.to_string()))
     }
 
     pub fn parse(current_url: &Url, line: &str) -> anyhow::Result<Self> {

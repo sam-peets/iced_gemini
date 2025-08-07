@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use iced::{
     Color, Element,
     widget::{button, tooltip},
@@ -26,12 +28,14 @@ impl<Message: Clone> GeminiLink<Message> {
         Message: 'a,
     {
         let button_text = self.friendly.clone().unwrap_or(self.url.to_string());
-        let tooltip_host = self
-            .url
-            .host()
-            .map(|x| x.to_string())
-            .unwrap_or(self.url.to_string());
-        let tooltip_text = format!("({tooltip_host})");
+
+        let tooltip_host = if let Some(host_str) = self.url.host_str() {
+            format!("({}://{})", self.url.scheme(), host_str)
+        } else {
+            // degenerate case where there isn't a host (can this ever happen?)
+            // just use the entire url, better than nothing
+            format!("({})", self.url)
+        };
 
         tooltip(
             button(GeminiText::new(&button_text).view())
@@ -44,7 +48,7 @@ impl<Message: Clone> GeminiLink<Message> {
                     }
                 })
                 .on_press((self.on_press)(&self.url)),
-            GeminiText::new(&tooltip_text).view(),
+            GeminiText::new(&tooltip_host).view(),
             tooltip::Position::Right,
         )
         .into()
