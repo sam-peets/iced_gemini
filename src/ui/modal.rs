@@ -17,7 +17,7 @@ impl<'a, Message: Clone + 'a> Modal<'a, Message> {
         let contents = opaque(center(container(self.contents).style(|t| {
             let palette = t.extended_palette();
             container::Style {
-                background: Some(palette.background.weak.color.into()),
+                background: Some(palette.background.base.color.into()),
                 border: Border {
                     color: Color::BLACK,
                     width: 1.0,

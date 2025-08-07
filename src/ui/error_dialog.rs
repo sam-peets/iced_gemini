@@ -1,6 +1,8 @@
 use iced::{
     Element,
-    widget::{Column, button, center, column, container, text},
+    Length::Fill,
+    Theme,
+    widget::{Column, Row, button, container, text},
 };
 
 #[derive(Clone)]
@@ -23,11 +25,18 @@ impl<Message: Clone> ErrorDialog<Message> {
         Message: 'a,
     {
         container(
-            Column::new()
+            Row::new()
                 .push(text(self.text))
-                .push(button("Ok").on_press(self.on_ok)),
+                .push(button("x").on_press(self.on_ok))
+                .width(Fill),
         )
-        .padding(20)
+        .style(|t: &Theme| {
+            let pal = t.extended_palette();
+            container::Style {
+                background: Some(pal.danger.weak.color.into()),
+                ..Default::default()
+            }
+        })
         .into()
     }
 }

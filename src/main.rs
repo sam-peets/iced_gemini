@@ -38,7 +38,7 @@ struct GeminiClient {
     scroll_position: AbsoluteOffset,
     history_back: Vec<(Document, AbsoluteOffset)>,
     history_forward: Vec<(Document, AbsoluteOffset)>,
-    error_dialog: Option<ErrorDialog<Message>>,
+    errors: Vec<String>,
 }
 
 impl Default for GeminiClient {
@@ -51,7 +51,7 @@ impl Default for GeminiClient {
             history_back: Default::default(),
             history_forward: Default::default(),
             scroll_position: Default::default(),
-            error_dialog: Default::default(),
+            errors: Default::default(),
         }
     }
 }
@@ -68,7 +68,7 @@ enum Message {
     Error(String),
     Scrolled(AbsoluteOffset),
     HomeButtonPressed,
-    HideErrorModal,
+    HideErrorModal(usize),
 }
 
 impl GeminiClient {
@@ -117,7 +117,7 @@ impl GeminiClient {
             Message::Error(e) => {
                 // TODO - client error handling, maybe a modal?
                 log::error!("Error: {e:?}");
-                self.error_dialog = Some(ErrorDialog::new(e, Message::HideErrorModal));
+                self.errors.push(e);
             }
             Message::BackButtonPressed => {
                 log::info!(
@@ -161,8 +161,8 @@ impl GeminiClient {
                     url::Url::parse("gemini://geminiprotocol.net/").expect("Should never fail"),
                 ));
             }
-            Message::HideErrorModal => {
-                self.error_dialog = None;
+            Message::HideErrorModal(idx) => {
+                self.errors.remove(idx);
             }
         }
         Task::none()
@@ -191,11 +191,10 @@ impl GeminiClient {
     }
 
     fn view(&self) -> Element<'_, Message> {
-        let base = column![self.url_bar(), self.body()];
-        if let Some(error_dialog) = self.error_dialog.clone() {
-            modal::Modal::new(base.into(), error_dialog.view()).view()
-        } else {
-            base.into()
-        }
+        let base =
+            column![self.url_bar(), self.body()].extend(self.errors.iter().enumerate().map(
+                |(i, err)| ErrorDialog::new(err.to_string(), Message::HideErrorModal(i)).view(),
+            ));
+        base.into()
     }
 }
