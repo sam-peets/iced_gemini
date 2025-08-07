@@ -42,7 +42,7 @@ impl TryFrom<&[u8]> for Response {
 
         Ok(Response {
             status,
-            ctx: spl.next().map(|s| s.to_string()),
+            ctx: spl.next().map(|s| s.trim().to_string()),
             body: Some(body.to_vec()),
         })
     }

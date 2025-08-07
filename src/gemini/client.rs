@@ -3,6 +3,7 @@ use std::{
     str::{FromStr, from_utf8},
 };
 
+use iced::widget::{self, image::Handle};
 use rustls::crypto::CryptoProvider;
 use thiserror::Error;
 use url::Url;
@@ -11,7 +12,7 @@ use crate::{
     Message,
     gemini::{
         Status,
-        gemtext::Document,
+        gemtext::{Document, Line},
         response::{self, Response},
     },
     net::{tofu_cert_verifier::TofuCertVerifier, tofu_socket::TofuSocket},
@@ -38,6 +39,46 @@ impl Client {
         }
     }
 
+    async fn success(&self, url: Url, response: Response) -> Message {
+        log::info!("load_page: Success! Rendering page");
+        let body = match response.body {
+            Some(x) => x,
+            None => return Message::Error("No response body".into()),
+        };
+        println!("{:?}", response.ctx);
+        let mime: mime::Mime = match response.ctx.unwrap_or("text/gemini".into()).parse() {
+            Ok(x) => x,
+            Err(e) => return Message::Error(e.to_string()),
+        };
+
+        match (mime.type_(), mime.subtype()) {
+            (mime::TEXT, x) if x.as_str() == "gemini" => {
+                let utf8_body = match String::from_utf8(body) {
+                    Ok(x) => x,
+                    Err(e) => {
+                        return Message::Error(format!("body contains bad utf8 data: {e:?}"));
+                    }
+                };
+
+                let document = match Document::parse(&url, &utf8_body) {
+                    Ok(x) => x,
+                    Err(e) => return Message::Error(e.to_string()),
+                };
+
+                Message::Loaded(url, Some(document))
+            }
+            (mime::IMAGE, _) => {
+                let handle = Handle::from_bytes(body);
+                let doc = Document {
+                    url: url.clone(),
+                    lines: vec![Line::Image(handle)],
+                };
+                Message::Loaded(url, Some(doc))
+            }
+            _ => Message::Error("unsupported MIME type".into()),
+        }
+    }
+
     pub async fn load_page(&self, url: &Url) -> Message {
         let (url, response) = match self.request(url).await {
             Ok(x) => x,
@@ -45,29 +86,9 @@ impl Client {
         };
 
         match response.status {
-            Status::Success => {
-                log::info!("load_page: Success! Rendering page")
-            }
+            Status::Success => self.success(url, response).await,
             _ => return Message::Error(format!("got bad status: {response:?}")),
         }
-
-        let body = match response.body {
-            Some(x) => x,
-            None => return Message::Error("No response body".into()),
-        };
-
-        // TODO - check mime type
-        let utf8_body = match String::from_utf8(body) {
-            Ok(x) => x,
-            Err(e) => return Message::Error(format!("body contains bad utf8 data: {e:?}")),
-        };
-
-        let document = match Document::parse(&url, &utf8_body) {
-            Ok(x) => x,
-            Err(e) => return Message::Error(e.to_string()),
-        };
-
-        Message::Loaded(url, Some(document))
     }
 
     pub async fn request(&self, url: &Url) -> anyhow::Result<(Url, Response)> {

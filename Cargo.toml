@@ -6,8 +6,9 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.98"
 env_logger = "0.11.8"
-iced = "0.13.1"
+iced = { version = "0.13.1", features = ["advanced", "image"] }
 log = "0.4.27"
+mime = "0.3.17"
 opener = "0.8.2"
 rustls = "0.23.31"
 thiserror = "2.0.12"

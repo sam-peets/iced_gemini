@@ -2,9 +2,10 @@ mod gemini;
 mod net;
 mod ui;
 
+use iced::advanced::widget::operation::scrollable::scroll_to;
 use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::{Column, Row, button, column, container, scrollable, text, text_input};
-use iced::{Element, Task, application};
+use iced::{Element, Font, Task, application};
 use url::Url;
 
 use crate::gemini::client::Client;
@@ -16,8 +17,8 @@ pub fn main() -> iced::Result {
         .install_default()
         .expect("Failed to install default crypto provider");
 
-    let app = application("iced out", GeminiClient::update, GeminiClient::view);
-    // .default_font(Font::with_name("Times New Roman"));
+    let app = application("iced out", GeminiClient::update, GeminiClient::view)
+        .default_font(Font::with_name("Arial"));
     app.run()
 }
 
@@ -26,6 +27,9 @@ struct GeminiClient {
     document: Option<Document>,
     client: Client,
     scroll_id: scrollable::Id,
+    scroll_position: AbsoluteOffset,
+    history_back: Vec<(Document, AbsoluteOffset)>,
+    history_forward: Vec<(Document, AbsoluteOffset)>,
 }
 
 impl Default for GeminiClient {
@@ -35,6 +39,9 @@ impl Default for GeminiClient {
             document: Default::default(),
             client: Default::default(),
             scroll_id: scrollable::Id::unique(),
+            history_back: Default::default(),
+            history_forward: Default::default(),
+            scroll_position: Default::default(),
         }
     }
 }
@@ -46,7 +53,10 @@ enum Message {
     Loaded(Url, Option<Document>),
     ButtonPressed(Url), // current page, path
     GoButtonPressed,
+    BackButtonPressed,
+    ForwardButtonPressed,
     Error(String),
+    Scrolled(AbsoluteOffset),
 }
 
 impl GeminiClient {
@@ -77,6 +87,10 @@ impl GeminiClient {
             }
             Message::ButtonPressed(page) => {
                 // TODO: add to history, etc.
+                if let Some(doc) = self.document.clone() {
+                    self.history_back.push((doc, self.scroll_position));
+                    self.history_forward.clear();
+                }
                 return Task::done(Message::PageLoad(page));
             }
             Message::GoButtonPressed => {
@@ -93,12 +107,40 @@ impl GeminiClient {
                 // TODO - client error handling, maybe a modal?
                 log::error!("Error: {e:?}");
             }
+            Message::BackButtonPressed => {
+                if let Some((prev_doc, pos)) = self.history_back.pop() {
+                    if let Some(current_doc) = self.document.clone() {
+                        self.history_forward
+                            .push((current_doc, self.scroll_position));
+                    };
+                    let scroll_task = scrollable::scroll_to(self.scroll_id.clone(), pos);
+                    let load_task =
+                        Task::done(Message::Loaded(prev_doc.url.clone(), Some(prev_doc)));
+                    return Task::batch([scroll_task, load_task]);
+                }
+            }
+            Message::ForwardButtonPressed => {
+                if let Some((next_doc, pos)) = self.history_forward.pop() {
+                    if let Some(current_doc) = self.document.clone() {
+                        self.history_back.push((current_doc, self.scroll_position));
+                    }
+                    let scroll_task = scrollable::scroll_to(self.scroll_id.clone(), pos);
+                    let load_task =
+                        Task::done(Message::Loaded(next_doc.url.clone(), Some(next_doc)));
+                    return Task::batch([scroll_task, load_task]);
+                }
+            }
+            Message::Scrolled(absolute_offset) => {
+                self.scroll_position = absolute_offset;
+            }
         }
         Task::none()
     }
 
     fn url_bar(&self) -> Row<'_, Message> {
         Row::new()
+            .push(button("<-").on_press(Message::BackButtonPressed))
+            .push(button("->").on_press(Message::ForwardButtonPressed))
             .push(text_input("uri", &self.uri).on_input(Message::UriChanged))
             .push(button("Go").on_press(Message::GoButtonPressed))
     }
@@ -106,19 +148,13 @@ impl GeminiClient {
     fn body(&self) -> Element<'_, Message> {
         if let Some(doc) = &self.document {
             scrollable(
-                container(Column::from_vec(
-                    doc.lines
-                        .iter()
-                        .map(|l| {
-                            l.view(|l| match l {
-                                Line::Link(url, _) => Message::ButtonPressed(url.clone()),
-                                _ => unreachable!(),
-                            })
-                        })
-                        .collect(),
-                ))
+                container(doc.view(|l| match l {
+                    Line::Link(url, _) => Message::ButtonPressed(url.clone()),
+                    _ => unreachable!(),
+                }))
                 .padding(20),
             )
+            .on_scroll(|v| Message::Scrolled(v.absolute_offset()))
             .id(self.scroll_id.clone())
             .width(iced::Fill)
             .height(iced::Fill)

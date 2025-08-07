@@ -1,8 +1,6 @@
-use std::any;
-
 use iced::{
     Border, Element, Font, padding,
-    widget::{Container, button, container, text, tooltip},
+    widget::{Column, Container, button, container, text, tooltip},
 };
 use thiserror::Error;
 use url::Url;
@@ -14,6 +12,12 @@ pub struct Document {
 }
 
 impl Document {
+    pub fn view<'a, Message: Clone + 'a>(
+        &'a self,
+        on_press: fn(&Line) -> Message,
+    ) -> Element<'a, Message> {
+        Column::from_vec(self.lines.iter().map(|line| line.view(on_press)).collect()).into()
+    }
     pub fn parse(url: &Url, doc: &str) -> anyhow::Result<Self> {
         let mut state = ParserMode::Normal;
         let mut lines = Vec::new();
@@ -58,6 +62,7 @@ pub enum Line {
     Quote(String),
     Toggle(String),
     PreFormatted(String),
+    Image(iced::advanced::image::Handle),
 }
 
 #[derive(Error, Debug)]
@@ -75,9 +80,9 @@ impl Line {
         on_press: fn(&Line) -> Message,
     ) -> Element<'a, Message> {
         tooltip(
-            button(text(friendly.unwrap_or(url.as_str())))
+            button(text(friendly.unwrap_or(url.as_str())).shaping(text::Shaping::Advanced))
                 .on_press_with(move || on_press(&self.clone())),
-            text(url.to_string()),
+            text(url.to_string()).shaping(text::Shaping::Advanced),
             tooltip::Position::Right,
         )
         .into()
@@ -89,13 +94,24 @@ impl Line {
     ) -> Element<'a, Message> {
         let sizes = [40, 30, 20];
         match self {
-            Line::Text(s) => Element::new(text(s)),
+            Line::Text(s) => Element::new(text(s).shaping(text::Shaping::Advanced)),
             Line::Link(url, friendly) => self.view_link(url, friendly.as_deref(), on_press),
-            Line::Heading(level, s) => Element::new(text(s).size(sizes[*level - 1])),
-            Line::List(s) => Element::new(text(format!(" • {s}"))),
-            Line::Quote(s) => Element::new(Container::new(text(s)).padding(padding::left(10))),
-            Line::PreFormatted(s) => Element::new(text(s).font(Font::MONOSPACE)),
+            Line::Heading(level, s) => Element::new(
+                text(s)
+                    .size(sizes[*level - 1])
+                    .shaping(text::Shaping::Advanced),
+            ),
+            Line::List(s) => Element::new(text(format!(" • {s}")).shaping(text::Shaping::Advanced)),
+            Line::Quote(s) => Element::new(
+                Container::new(text(s).shaping(text::Shaping::Advanced)).padding(padding::left(10)),
+            ),
+            Line::PreFormatted(s) => Element::new(
+                text(s)
+                    .font(Font::MONOSPACE)
+                    .shaping(text::Shaping::Advanced),
+            ),
             Line::Toggle(_) => unreachable!(),
+            Line::Image(handle) => Element::new(iced::widget::image(handle)),
         }
     }
 
@@ -144,6 +160,7 @@ impl Line {
             x if x.starts_with("#") => Line::parse_header(line),
             x if x.starts_with("*") => Line::parse_list(line),
             x if x.starts_with("```") => Line::parse_toggle(line),
+            x if x.starts_with(">") => Line::parse_quote(line),
             x => Ok(Line::Text(x.to_string())),
         }
     }
