@@ -25,8 +25,8 @@ impl GeminiText {
         self
     }
 
-    pub fn view<'a, Message>(&self) -> Element<'a, Message> {
-        let mut t = text(self.text.clone()).shaping(text::Shaping::Advanced);
+    pub fn view<'a, Message>(self) -> Element<'a, Message> {
+        let mut t = text(self.text).shaping(text::Shaping::Advanced);
         if let Some(size) = self.size {
             t = t.size(size);
         };

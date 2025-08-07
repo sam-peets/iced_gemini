@@ -64,6 +64,7 @@ enum Message {
     ForwardButtonPressed,
     Error(String),
     Scrolled(AbsoluteOffset),
+    HomeButtonPressed,
 }
 
 impl GeminiClient {
@@ -149,6 +150,12 @@ impl GeminiClient {
             Message::Scrolled(absolute_offset) => {
                 self.scroll_position = absolute_offset;
             }
+            Message::HomeButtonPressed => {
+                // TODO -> Custom home page
+                return Task::done(Message::PageLoad(
+                    url::Url::parse("gemini://geminiprotocol.net/").expect("Should never fail"),
+                ));
+            }
         }
         Task::none()
     }
@@ -157,6 +164,7 @@ impl GeminiClient {
         Row::new()
             .push(button(GeminiText::new("⬅️").view()).on_press(Message::BackButtonPressed))
             .push(button(GeminiText::new("➡️").view()).on_press(Message::ForwardButtonPressed))
+            .push(button(GeminiText::new("🏠").view()).on_press(Message::HomeButtonPressed))
             .push(text_input("uri", &self.uri).on_input(Message::UriChanged))
             .push(button("Go").on_press(Message::GoButtonPressed))
     }

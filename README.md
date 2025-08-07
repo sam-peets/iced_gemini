@@ -21,3 +21,4 @@ This is a learning exercise for [Iced](http://iced.rs) and the [Gemini Protocol]
 - [ ] Support other status codes (input, etc.)
 - [ ] Proper error handling
 - [ ] Progress/status reporting (loading pages is blind right now)
+- [ ] File downloading (for unsupproted mime-types, offer to save the file)
