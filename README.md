@@ -2,7 +2,7 @@
 
 This is a learning exercise for [Iced](http://iced.rs) and the [Gemini Protocol](https://geminiprotocol.net/).
 
-
+While functional, this client is NOT feature-complete and isn't a great choice for regular browsing.
 
 ## Features
 
