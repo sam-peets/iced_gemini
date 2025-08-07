@@ -1,9 +1,4 @@
-use std::fmt::format;
-
-use iced::{
-    Color, Element,
-    widget::{button, tooltip},
-};
+use iced::{Color, Element, widget::button};
 use url::Url;
 
 use crate::ui::{gemini_text::GeminiText, gemini_tooltip::GeminiTooltip};

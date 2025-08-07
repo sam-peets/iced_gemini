@@ -1,7 +1,8 @@
 use iced::{
-    Border, Element, Font, padding,
-    widget::{Column, Container, button, container, text, tooltip},
+    Element, Font, padding,
+    widget::{Column, Container},
 };
+use std::fmt::Write;
 use thiserror::Error;
 use url::Url;
 
@@ -31,10 +32,11 @@ impl Document {
         let mut lines = Vec::new();
         let mut doc = doc;
         let mut acc = String::new();
-        while let Some((line, rest)) = doc.split_once("\n") {
+        while let Some((line, rest)) = doc.split_once('\n') {
             if state == ParserMode::Normal {
                 let l = Line::parse(url, line)?;
                 if let Line::Toggle(s) = l {
+                    log::info!("Document::parse: read toggle: {s}");
                     state = if state == ParserMode::Normal {
                         acc = String::new();
                         ParserMode::PreFormatted
@@ -48,7 +50,7 @@ impl Document {
                 lines.push(Line::PreFormatted(acc.clone()));
                 state = ParserMode::Normal;
             } else {
-                acc.push_str(&format!("{line}\n"));
+                writeln!(acc, "{line}")?;
             }
 
             doc = rest;
@@ -77,19 +79,8 @@ pub enum Line {
 pub enum LineParsingError {
     #[error("malformed link line: missing URI")]
     MissingUri,
-    #[error("parsing error: ${0}")]
-    Other(String),
 }
 impl Line {
-    fn view_link<'a, Message: Clone + 'a>(
-        &'a self,
-        url: &'a Url,
-        friendly: Option<&'a str>,
-        on_press: fn(&Url) -> Message,
-    ) -> Element<'a, Message> {
-        GeminiLink::new(url.clone(), friendly.map(str::to_string), on_press).view()
-    }
-
     pub fn view<'a, Message: Clone + 'a>(
         &'a self,
         on_press_link: fn(&Url) -> Message,
@@ -97,7 +88,9 @@ impl Line {
         let sizes = [40, 30, 20];
         match self {
             Line::Text(s) => GeminiText::new(s).view(),
-            Line::Link(url, friendly) => self.view_link(url, friendly.as_deref(), on_press_link),
+            Line::Link(url, friendly) => {
+                GeminiLink::new(url.clone(), friendly.clone(), on_press_link).view()
+            }
             Line::Heading(level, s) => GeminiText::new(s).size(sizes[*level - 1]).view(),
             Line::List(s) => GeminiText::new(&format!(" • {s}")).view(),
             Line::Quote(s) => {
@@ -123,34 +116,34 @@ impl Line {
         Ok(Line::Link(current_url.join(&uri)?, friendly))
     }
 
-    fn parse_header(line: &str) -> anyhow::Result<Self> {
+    fn parse_header(line: &str) -> Self {
         let hashes = line.chars().take_while(|&c| c == '#').count();
         let rest = line[hashes..].trim_start();
-        Ok(Line::Heading(hashes, rest.to_string()))
+        Line::Heading(hashes, rest.to_string())
     }
 
-    fn parse_list(line: &str) -> anyhow::Result<Self> {
+    fn parse_list(line: &str) -> Self {
         let line = line[1..].trim(); // everything after the `*`
-        Ok(Line::List(line.to_string()))
+        Line::List(line.to_string())
     }
 
-    fn parse_toggle(line: &str) -> anyhow::Result<Self> {
-        Ok(Line::Toggle(line[3..].to_string()))
+    fn parse_toggle(line: &str) -> Self {
+        Line::Toggle(line[3..].to_string())
     }
 
-    fn parse_quote(line: &str) -> anyhow::Result<Self> {
+    fn parse_quote(line: &str) -> Self {
         let line = line[1..].trim(); // everything after the `>`
-        Ok(Line::Quote(line.to_string()))
+        Line::Quote(line.to_string())
     }
 
     pub fn parse(current_url: &Url, line: &str) -> anyhow::Result<Self> {
         log::trace!("Line: parsing {line}");
         match line {
             x if x.starts_with("=>") => Line::parse_link(current_url, line),
-            x if x.starts_with("#") => Line::parse_header(line),
-            x if x.starts_with("*") => Line::parse_list(line),
-            x if x.starts_with("```") => Line::parse_toggle(line),
-            x if x.starts_with(">") => Line::parse_quote(line),
+            x if x.starts_with('#') => Ok(Line::parse_header(line)),
+            x if x.starts_with('*') => Ok(Line::parse_list(line)),
+            x if x.starts_with("```") => Ok(Line::parse_toggle(line)),
+            x if x.starts_with('>') => Ok(Line::parse_quote(line)),
             x => Ok(Line::Text(x.to_string())),
         }
     }

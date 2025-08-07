@@ -1,16 +1,15 @@
+#[warn(clippy::all, clippy::pedantic)]
 mod gemini;
 mod net;
 mod ui;
 
-use iced::advanced::widget::operation::scrollable::scroll_to;
 use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::{Column, Row, button, column, container, scrollable, text, text_input};
 use iced::{Element, Font, Task, application};
-use log::info;
 use url::Url;
 
 use crate::gemini::client::Client;
-use crate::gemini::gemtext::{Document, Line};
+use crate::gemini::gemtext::Document;
 use crate::ui::gemini_text::GeminiText;
 
 pub fn main() -> iced::Result {
@@ -89,7 +88,7 @@ impl GeminiClient {
                 let load_task = {
                     let url = url.clone();
                     let client = self.client;
-                    Task::future(async move { client.load_page(&url).await })
+                    Task::future(async move { client.load_page(&url) })
                 };
                 let scroll_task = scrollable::scroll_to(
                     self.scroll_id.clone(),

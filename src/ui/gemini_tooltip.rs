@@ -1,5 +1,5 @@
 use iced::{
-    Border, Color, Element, Shadow,
+    Element,
     widget::{container, tooltip},
 };
 
@@ -16,10 +16,7 @@ impl<'a, Message: Clone> GeminiTooltip<'a, Message> {
     pub fn view(self) -> Element<'a, Message> {
         tooltip(
             self.contents,
-            container(self.tooltip).style(|theme| {
-                let style = container::bordered_box(theme);
-                style
-            }),
+            container(self.tooltip).style(container::bordered_box),
             tooltip::Position::FollowCursor,
         )
         .into()

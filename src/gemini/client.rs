@@ -1,9 +1,4 @@
-use std::{
-    any,
-    str::{FromStr, from_utf8},
-};
-
-use iced::widget::{self, image::Handle};
+use iced::widget::image::Handle;
 use rustls::crypto::CryptoProvider;
 use thiserror::Error;
 use url::Url;
@@ -13,7 +8,7 @@ use crate::{
     gemini::{
         Status,
         gemtext::{Document, Line},
-        response::{self, Response},
+        response::Response,
     },
     net::{tofu_cert_verifier::TofuCertVerifier, tofu_socket::TofuSocket},
 };
@@ -39,12 +34,12 @@ impl Client {
         }
     }
 
-    async fn success(&self, url: Url, response: Response) -> Message {
+    fn success(url: Url, response: Response) -> Message {
         log::info!("load_page: Success! Rendering page");
-        let body = match response.body {
-            Some(x) => x,
-            None => return Message::Error("No response body".into()),
+        let Some(body) = response.body else {
+            return Message::Error("No response body".into());
         };
+
         println!("{:?}", response.ctx);
         let mime: mime::Mime = match response.ctx.unwrap_or("text/gemini".into()).parse() {
             Ok(x) => x,
@@ -79,19 +74,19 @@ impl Client {
         }
     }
 
-    pub async fn load_page(&self, url: &Url) -> Message {
-        let (url, response) = match self.request(url).await {
+    pub fn load_page(&self, url: &Url) -> Message {
+        let (url, response) = match self.request(url) {
             Ok(x) => x,
             Err(e) => return Message::Error("load_page: request: ".to_string() + &e.to_string()),
         };
 
         match response.status {
-            Status::Success => self.success(url, response).await,
+            Status::Success => Client::success(url, response),
             _ => Message::Error(format!("got bad status: {response:?}")),
         }
     }
 
-    pub async fn request(&self, url: &Url) -> anyhow::Result<(Url, Response)> {
+    pub fn request(&self, url: &Url) -> anyhow::Result<(Url, Response)> {
         let mut sock = TofuSocket::new(url.clone(), self.verifier)?;
 
         let res = sock.request(format!("{url}\r\n").as_bytes())?;
@@ -113,7 +108,6 @@ impl Client {
             log::info!("Client: request: res: {:?}", str::from_utf8(&res));
             r = (&res[..]).try_into()?;
         }
-        if let 30..=39 = r.status as u8 {};
 
         Ok((url, r))
     }

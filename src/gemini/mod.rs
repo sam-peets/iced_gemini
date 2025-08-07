@@ -35,6 +35,8 @@ pub enum Status {
 impl TryFrom<u8> for Status {
     type Error = StatusError;
 
+    // allowing some lints since I think the intention is more clear like this
+    #[allow(clippy::match_overlapping_arm, clippy::match_same_arms)]
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             10 => Ok(Status::InputExpected),
