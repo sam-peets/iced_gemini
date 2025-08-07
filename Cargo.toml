@@ -16,7 +16,4 @@ url = "2.5.4"
 webpki-roots = "1.0.2"
 
 [profile.release]
-strip = true
-opt-level = "z"
-lto = true
-codegen-units = 1
+debug = true

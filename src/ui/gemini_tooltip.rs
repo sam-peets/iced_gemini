@@ -17,7 +17,7 @@ impl<'a, Message: Clone> GeminiTooltip<'a, Message> {
         tooltip(
             self.contents,
             container(self.tooltip).style(container::bordered_box),
-            tooltip::Position::FollowCursor,
+            tooltip::Position::Right,
         )
         .into()
     }

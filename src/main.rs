@@ -10,7 +10,9 @@ use url::Url;
 
 use crate::gemini::client::Client;
 use crate::gemini::gemtext::Document;
+use crate::ui::error_dialog::ErrorDialog;
 use crate::ui::gemini_text::GeminiText;
+use crate::ui::modal;
 
 pub fn main() -> iced::Result {
     env_logger::init();
@@ -36,6 +38,7 @@ struct GeminiClient {
     scroll_position: AbsoluteOffset,
     history_back: Vec<(Document, AbsoluteOffset)>,
     history_forward: Vec<(Document, AbsoluteOffset)>,
+    error_dialog: Option<ErrorDialog<Message>>,
 }
 
 impl Default for GeminiClient {
@@ -48,6 +51,7 @@ impl Default for GeminiClient {
             history_back: Default::default(),
             history_forward: Default::default(),
             scroll_position: Default::default(),
+            error_dialog: Default::default(),
         }
     }
 }
@@ -64,6 +68,7 @@ enum Message {
     Error(String),
     Scrolled(AbsoluteOffset),
     HomeButtonPressed,
+    HideErrorModal,
 }
 
 impl GeminiClient {
@@ -112,6 +117,7 @@ impl GeminiClient {
             Message::Error(e) => {
                 // TODO - client error handling, maybe a modal?
                 log::error!("Error: {e:?}");
+                self.error_dialog = Some(ErrorDialog::new(e, Message::HideErrorModal));
             }
             Message::BackButtonPressed => {
                 log::info!(
@@ -155,6 +161,9 @@ impl GeminiClient {
                     url::Url::parse("gemini://geminiprotocol.net/").expect("Should never fail"),
                 ));
             }
+            Message::HideErrorModal => {
+                self.error_dialog = None;
+            }
         }
         Task::none()
     }
@@ -181,7 +190,12 @@ impl GeminiClient {
         }
     }
 
-    fn view(&self) -> Column<'_, Message> {
-        column![self.url_bar(), self.body()]
+    fn view(&self) -> Element<'_, Message> {
+        let base = column![self.url_bar(), self.body()];
+        if let Some(error_dialog) = self.error_dialog.clone() {
+            modal::Modal::new(base.into(), error_dialog.view()).view()
+        } else {
+            base.into()
+        }
     }
 }
