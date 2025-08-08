@@ -1,8 +1,9 @@
 use iced::{
+    Alignment::Center,
     Element,
-    Length::Fill,
+    Length::{self, Fill, Shrink},
     Theme,
-    widget::{Column, Row, button, container, text},
+    widget::{Column, Container, Row, button, container, text},
 };
 
 #[derive(Clone)]
@@ -27,9 +28,11 @@ impl<Message: Clone> ErrorDialog<Message> {
         container(
             Row::new()
                 .push(text(self.text))
-                .push(button("x").on_press(self.on_ok))
-                .width(Fill),
+                .push(container(button("x").on_press(self.on_ok)).align_right(Fill)),
         )
+        .padding(10)
+        .height(Shrink)
+        .align_y(Center)
         .style(|t: &Theme| {
             let pal = t.extended_palette();
             container::Style {
