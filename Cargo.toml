@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.98"
 env_logger = "0.11.8"
-iced = { version = "0.13.1", features = ["advanced", "image"] }
+iced = { git = "https://github.com/iced-rs/iced", features = ["advanced", "image"] }
 log = "0.4.27"
 mime = "0.3.17"
 opener = "0.8.2"

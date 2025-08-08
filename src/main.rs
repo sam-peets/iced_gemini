@@ -20,14 +20,18 @@ pub fn main() -> iced::Result {
         .install_default()
         .expect("Failed to install default crypto provider");
 
-    let app = application("iced out", GeminiClient::update, GeminiClient::view)
-        .default_font(Font::with_name("Arial"));
-    app.run_with(|| {
-        let t = Task::done(Message::PageLoad(
-            url::Url::parse("gemini://geminiprotocol.net/").expect("Should never fail"),
-        ));
-        (GeminiClient::default(), t)
-    })
+    let app = application(
+        || {
+            let t = Task::done(Message::PageLoad(
+                url::Url::parse("gemini://geminiprotocol.net/").expect("Should never fail"),
+            ));
+            (GeminiClient::default(), t)
+        },
+        GeminiClient::update,
+        GeminiClient::view,
+    )
+    .default_font(Font::with_name("Arial"));
+    app.run()
 }
 
 struct GeminiClient {
@@ -69,6 +73,7 @@ enum Message {
     Scrolled(AbsoluteOffset),
     HomeButtonPressed,
     HideErrorModal(usize),
+    OnPressError(String),
 }
 
 impl GeminiClient {
@@ -164,6 +169,9 @@ impl GeminiClient {
             Message::HideErrorModal(idx) => {
                 self.errors.remove(idx);
             }
+            Message::OnPressError(e) => {
+                log::info!("FIXME: do something with the error")
+            }
         }
         Task::none()
     }
@@ -191,10 +199,12 @@ impl GeminiClient {
     }
 
     fn view(&self) -> Element<'_, Message> {
-        let base =
-            column![self.url_bar(), self.body()].extend(self.errors.iter().enumerate().map(
-                |(i, err)| ErrorDialog::new(err.to_string(), Message::HideErrorModal(i)).view(),
-            ));
+        let base = column![self.url_bar(), self.body()].extend(self.errors.iter().enumerate().map(
+            |(i, err)| {
+                ErrorDialog::new(err.to_string(), Message::HideErrorModal(i))
+                    .view(Message::OnPressError(err.clone()))
+            },
+        ));
         base.into()
     }
 }

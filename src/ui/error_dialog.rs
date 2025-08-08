@@ -3,8 +3,10 @@ use iced::{
     Element,
     Length::{self, Fill, Shrink},
     Theme,
-    widget::{Column, Container, Row, button, container, text},
+    widget::{Column, Container, Row, button, container, mouse_area, text},
 };
+
+use crate::ui::gemini_text::GeminiText;
 
 #[derive(Clone)]
 pub struct ErrorDialog<Message: Clone> {
@@ -21,18 +23,21 @@ impl<Message: Clone> ErrorDialog<Message> {
         Self::new(err.to_string(), on_ok)
     }
 
-    pub fn view<'a>(self) -> Element<'a, Message>
+    pub fn view<'a>(self, on_press: Message) -> Element<'a, Message>
     where
         Message: 'a,
     {
         container(
             Row::new()
-                .push(text(self.text))
-                .push(container(button("x").on_press(self.on_ok)).align_right(Fill)),
+                .push(
+                    container(text(self.text).wrapping(text::Wrapping::None))
+                        .align_left(Fill)
+                        .clip(true),
+                )
+                .push(container(button("x").on_press(self.on_ok)).align_right(Shrink))
+                .align_y(Center),
         )
         .padding(10)
-        .height(Shrink)
-        .align_y(Center)
         .style(|t: &Theme| {
             let pal = t.extended_palette();
             container::Style {
