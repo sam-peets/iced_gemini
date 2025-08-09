@@ -3,8 +3,9 @@ mod gemini;
 mod net;
 mod ui;
 
+use iced::Length::{Fill, Shrink};
 use iced::widget::scrollable::AbsoluteOffset;
-use iced::widget::{Column, Row, button, column, container, scrollable, text, text_input};
+use iced::widget::{Column, Row, button, center, column, container, scrollable, text, text_input};
 use iced::{Element, Font, Task, application};
 use url::Url;
 
@@ -109,11 +110,23 @@ impl GeminiClient {
                     let client = self.client;
                     Task::future(async move { client.load_page(&url) })
                 };
-                let scroll_task = scrollable::scroll_to(
-                    self.scroll_id.clone(),
-                    AbsoluteOffset { x: 0.0, y: 0.0 },
-                );
-                return Task::batch([load_task, scroll_task]);
+
+                // we only want to reset the scroll if the pageload is successful
+                // check for an Error and bubble that, otherwise chain a scroll
+                return {
+                    let scroll_id = self.scroll_id.clone();
+
+                    load_task.then(move |x| {
+                        let scroll_task = scrollable::scroll_to(
+                            scroll_id.clone(),
+                            AbsoluteOffset { x: 0.0, y: 0.0 },
+                        );
+                        match x {
+                            Message::Error(_) => Task::done(x),
+                            x => Task::done(x).chain(scroll_task),
+                        }
+                    })
+                };
             }
             Message::ButtonPressed(page) => {
                 return Task::done(Message::PageLoad(page));
@@ -223,7 +236,11 @@ impl GeminiClient {
 
     fn body(&self) -> Element<'_, Message> {
         if let Some(doc) = &self.document {
-            scrollable(container(doc.view(|url| Message::ButtonPressed(url.clone()))).padding(20))
+            // TODO -> make the max width customisable
+            let doc_view = container(doc.view(|url| Message::ButtonPressed(url.clone())))
+                .width(1000)
+                .max_width(1000);
+            scrollable(container(doc_view).padding(20).center_x(Fill))
                 .on_scroll(|v| Message::Scrolled(v.absolute_offset()))
                 .id(self.scroll_id.clone())
                 .width(iced::Fill)
