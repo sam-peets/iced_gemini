@@ -40,7 +40,7 @@ impl Client {
             return Message::Error("No response body".into());
         };
 
-        println!("{:?}", response.ctx);
+        log::info!("success: got MIME type: {:?}", response.ctx);
         let mime: mime::Mime = match response.ctx.unwrap_or("text/gemini".into()).parse() {
             Ok(x) => x,
             Err(e) => return Message::Error(e.to_string()),
@@ -82,6 +82,7 @@ impl Client {
 
         match response.status {
             Status::Success => Client::success(url, response),
+            Status::InputExpected => Message::InputExpected(url, response),
             _ => Message::Error(format!("got bad status: {response:?}")),
         }
     }

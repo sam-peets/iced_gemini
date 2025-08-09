@@ -12,15 +12,16 @@ This is primarily a learning exercise. While functional, this client is NOT feat
 - Image display
 - History (to an extent)
 - Async networking
+- Input
 - A few other things
 
 ## To Do
 
 - [x] Async page loading
 - [ ] TOFU cert verification
-- [ ] Client certificate handling
-- [ ] Support other status codes (input, etc.)
+- [ ] Client certificates
+- [ ] Support other status codes
 - [ ] Proper error handling
 - [ ] Progress/status reporting (loading pages is blind right now)
-- [ ] File downloading (for unsupported mime-types, offer to save the file)
+- [ ] General file support (for unsupported mime-types, offer to save the file)
 - [ ] Improved Appearance/Customisation

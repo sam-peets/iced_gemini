@@ -10,9 +10,11 @@ use url::Url;
 
 use crate::gemini::client::Client;
 use crate::gemini::gemtext::Document;
+use crate::gemini::response::Response;
 use crate::ui::error_dialog::ErrorDialog;
 use crate::ui::gemini_text::GeminiText;
-use crate::ui::modal;
+use crate::ui::input_modal::{self, InputModal, InputRequest};
+use crate::ui::modal::{self, Modal};
 
 pub fn main() -> iced::Result {
     env_logger::init();
@@ -43,6 +45,8 @@ struct GeminiClient {
     history_back: Vec<(Document, AbsoluteOffset)>,
     history_forward: Vec<(Document, AbsoluteOffset)>,
     errors: Vec<String>,
+    input_text: String,
+    input_request: Option<InputRequest>,
 }
 
 impl Default for GeminiClient {
@@ -56,6 +60,8 @@ impl Default for GeminiClient {
             history_forward: Default::default(),
             scroll_position: Default::default(),
             errors: Default::default(),
+            input_text: Default::default(),
+            input_request: Default::default(),
         }
     }
 }
@@ -74,6 +80,9 @@ enum Message {
     HomeButtonPressed,
     HideErrorModal(usize),
     OnPressError(String),
+    OnSubmitInput,
+    OnChangeInput(String),
+    InputExpected(Url, Response),
 }
 
 impl GeminiClient {
@@ -83,7 +92,7 @@ impl GeminiClient {
                 self.uri = uri;
             }
             Message::PageLoad(url) => {
-                log::info!("GoButtonPressed: opening scheme: {:?}", url.scheme());
+                log::info!("PageLoad: opening url: {:?}", url);
                 if url.scheme() != "gemini" {
                     if let Err(e) = opener::open(url.to_string()) {
                         return Task::done(Message::Error(e.to_string()));
@@ -172,6 +181,29 @@ impl GeminiClient {
             Message::OnPressError(e) => {
                 log::info!("FIXME: do something with the error")
             }
+            Message::OnSubmitInput => {
+                let t = if let Some(req) = &self.input_request {
+                    let mut url = req.url.clone();
+                    url.set_query(Some(&self.input_text));
+                    Task::done(Message::PageLoad(url))
+                } else {
+                    Task::done(Message::Error(
+                        "Tried to submit input while InputRequest was None".to_string(),
+                    ))
+                };
+                self.input_request = None; // discard the request
+                return t;
+            }
+            Message::OnChangeInput(s) => {
+                self.input_text = s;
+            }
+            Message::InputExpected(url, res) => {
+                log::info!("InputExpected: {url:?}, {res:?}");
+                let prompt = res
+                    .ctx
+                    .unwrap_or("Input Expected (no information provided)".into());
+                self.input_request = Some(InputRequest::new(url, prompt));
+            }
         }
         Task::none()
     }
@@ -181,7 +213,11 @@ impl GeminiClient {
             .push(button(GeminiText::new("⬅️").view()).on_press(Message::BackButtonPressed))
             .push(button(GeminiText::new("➡️").view()).on_press(Message::ForwardButtonPressed))
             .push(button(GeminiText::new("🏠").view()).on_press(Message::HomeButtonPressed))
-            .push(text_input("uri", &self.uri).on_input(Message::UriChanged))
+            .push(
+                text_input("uri", &self.uri)
+                    .on_input(Message::UriChanged)
+                    .on_submit(Message::GoButtonPressed),
+            )
             .push(button("Go").on_press(Message::GoButtonPressed))
     }
 
@@ -205,6 +241,22 @@ impl GeminiClient {
                     .view(Message::OnPressError(err.clone()))
             },
         ));
-        base.into()
+
+        if let Some(input_request) = &self.input_request {
+            let input_modal = input_request.modal();
+            let modal = Modal::new(
+                base.into(),
+                input_modal
+                    .view(
+                        &self.input_text,
+                        Message::OnChangeInput,
+                        Message::OnSubmitInput,
+                    )
+                    .into(),
+            );
+            modal.view()
+        } else {
+            base.into()
+        }
     }
 }
