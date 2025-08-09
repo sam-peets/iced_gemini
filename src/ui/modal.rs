@@ -1,7 +1,6 @@
 use iced::{
-    Border, Color, Element, border, color,
-    widget::{center, container, mouse_area, opaque, stack},
-    window,
+    Border, Color, Element,
+    widget::{center, container, opaque, stack},
 };
 
 pub struct Modal<'a, Message: Clone + 'a> {

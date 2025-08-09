@@ -3,9 +3,9 @@ mod gemini;
 mod net;
 mod ui;
 
-use iced::Length::{Fill, Shrink};
+use iced::Length::Fill;
 use iced::widget::scrollable::AbsoluteOffset;
-use iced::widget::{Column, Row, button, center, column, container, scrollable, text, text_input};
+use iced::widget::{Row, button, column, container, scrollable, text, text_input};
 use iced::{Element, Font, Task, application};
 use url::Url;
 
@@ -14,8 +14,8 @@ use crate::gemini::gemtext::Document;
 use crate::gemini::response::Response;
 use crate::ui::error_dialog::ErrorDialog;
 use crate::ui::gemini_text::GeminiText;
-use crate::ui::input_modal::{self, InputModal, InputRequest};
-use crate::ui::modal::{self, Modal};
+use crate::ui::input_modal::InputRequest;
+use crate::ui::modal::Modal;
 
 pub fn main() -> iced::Result {
     env_logger::init();
@@ -93,7 +93,7 @@ impl GeminiClient {
                 self.uri = uri;
             }
             Message::PageLoad(url) => {
-                log::info!("PageLoad: opening url: {:?}", url);
+                log::info!("PageLoad: opening url: {url:?}");
                 if url.scheme() != "gemini" {
                     if let Err(e) = opener::open(url.to_string()) {
                         return Task::done(Message::Error(e.to_string()));
@@ -191,8 +191,8 @@ impl GeminiClient {
             Message::HideErrorModal(idx) => {
                 self.errors.remove(idx);
             }
-            Message::OnPressError(e) => {
-                log::info!("FIXME: do something with the error")
+            Message::OnPressError(s) => {
+                log::info!("FIXME: do something with the error: {s:?}")
             }
             Message::OnSubmitInput => {
                 let t = if let Some(req) = &self.input_request {
@@ -263,13 +263,11 @@ impl GeminiClient {
             let input_modal = input_request.modal();
             let modal = Modal::new(
                 base.into(),
-                input_modal
-                    .view(
-                        &self.input_text,
-                        Message::OnChangeInput,
-                        Message::OnSubmitInput,
-                    )
-                    .into(),
+                input_modal.view(
+                    &self.input_text,
+                    Message::OnChangeInput,
+                    Message::OnSubmitInput,
+                ),
             );
             modal.view()
         } else {

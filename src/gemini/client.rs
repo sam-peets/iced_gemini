@@ -13,6 +13,8 @@ use crate::{
     net::{tofu_cert_verifier::TofuCertVerifier, tofu_socket::TofuSocket},
 };
 
+const MAX_REDIRECTS: usize = 5;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Client {
     verifier: TofuCertVerifier,
@@ -94,7 +96,9 @@ impl Client {
         let mut r: Response = (&res[..]).try_into()?;
         let mut url = url.clone();
 
-        while (30..=39).any(|x| x == r.status as u8) {
+        let mut num_redirects = 0;
+        while (30..=39).any(|x| x == r.status as u8) && num_redirects <= MAX_REDIRECTS {
+            num_redirects += 1;
             // redirect
             log::info!("Client: request: redirecting to {:?}", r.ctx);
             let ctx = r.ctx.ok_or(ClientError::MissingContext(format!(

@@ -1,12 +1,10 @@
 use iced::{
     Alignment::Center,
     Element,
-    Length::{self, Fill, Shrink},
+    Length::{Fill, Shrink},
     Theme,
-    widget::{Column, Container, Row, button, container, mouse_area, text},
+    widget::{Row, button, container, text},
 };
-
-use crate::ui::gemini_text::GeminiText;
 
 #[derive(Clone)]
 pub struct ErrorDialog<Message: Clone> {
@@ -23,7 +21,7 @@ impl<Message: Clone> ErrorDialog<Message> {
         Self::new(err.to_string(), on_ok)
     }
 
-    pub fn view<'a>(self, on_press: Message) -> Element<'a, Message>
+    pub fn view<'a>(self, _on_press: Message) -> Element<'a, Message>
     where
         Message: 'a,
     {

@@ -1,7 +1,7 @@
 use iced::{
     Element,
     Length::{Fill, Shrink},
-    widget::{Column, Container, Row, button, column, container, text_input},
+    widget::{Column, button, container, text_input},
 };
 use url::Url;
 
@@ -20,14 +20,12 @@ impl InputRequest {
 
     pub fn modal(&self) -> InputModal {
         InputModal {
-            url: self.url.clone(),
             prompt: self.prompt.clone(),
         }
     }
 }
 
 pub struct InputModal {
-    url: Url,
     prompt: String,
 }
 

@@ -154,3 +154,246 @@ enum ParserMode {
     Normal,
     PreFormatted,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_quote() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, "> hello")?;
+        if let Line::Quote(q) = x {
+            assert_eq!(q, "hello");
+        } else {
+            panic!()
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_parse_quote_no_space() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, ">hello")?;
+        if let Line::Quote(q) = x {
+            assert_eq!(q, "hello");
+        } else {
+            panic!()
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_parse_quote_no_text() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, ">")?;
+        if let Line::Quote(q) = x {
+            assert_eq!(q, "");
+        } else {
+            panic!()
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_list() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, "* hello")?;
+        if let Line::List(q) = x {
+            assert_eq!(q, "hello");
+        } else {
+            panic!()
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_list_no_space() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, "*hello")?;
+        if let Line::List(q) = x {
+            assert_eq!(q, "hello");
+        } else {
+            panic!()
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_list_no_text() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, "*")?;
+        if let Line::List(q) = x {
+            assert_eq!(q, "");
+        } else {
+            panic!()
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let target = Url::parse("gemini://example2.com/")?;
+        let x = Line::parse(&url, "=> gemini://example2.com/")?;
+        if let Line::Link(link_url, friendly) = x {
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, None);
+        } else {
+            panic!();
+        }
+        let x = Line::parse(&url, "=> gemini://example2.com/ hello")?;
+        if let Line::Link(link_url, friendly) = x {
+            let friendly = friendly.unwrap();
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, "hello");
+        } else {
+            panic!();
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_relative() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let target = Url::parse("gemini://example.com/relative")?;
+        let x = Line::parse(&url, "=> relative")?;
+        if let Line::Link(link_url, friendly) = x {
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, None);
+        } else {
+            panic!();
+        }
+
+        let x = Line::parse(&url, "=> relative friendly")?;
+        if let Line::Link(link_url, friendly) = x {
+            let friendly = friendly.unwrap();
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, "friendly");
+        } else {
+            panic!();
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_relative_deep() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/1/2/3")?;
+        let target = Url::parse("gemini://example.com/1/2/abc/xyz")?;
+        let x = Line::parse(&url, "=> abc/xyz")?;
+        if let Line::Link(link_url, friendly) = x {
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, None);
+        } else {
+            panic!();
+        }
+
+        let x = Line::parse(&url, "=> abc/xyz friendly")?;
+        if let Line::Link(link_url, friendly) = x {
+            let friendly = friendly.unwrap();
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, "friendly");
+        } else {
+            panic!();
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_relative_root() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/1/2/3")?;
+        let target = Url::parse("gemini://example.com/abc/xyz")?;
+        let x = Line::parse(&url, "=> /abc/xyz")?;
+        if let Line::Link(link_url, friendly) = x {
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, None);
+        } else {
+            panic!();
+        }
+
+        let x = Line::parse(&url, "=> /abc/xyz friendly")?;
+        if let Line::Link(link_url, friendly) = x {
+            let friendly = friendly.unwrap();
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, "friendly");
+        } else {
+            panic!();
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_friendly_space() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let target = Url::parse("gemini://example.com/abc")?;
+        let x = Line::parse(&url, "=> abc long friendly text with spaces")?;
+        if let Line::Link(link_url, friendly) = x {
+            let friendly = friendly.unwrap();
+            assert_eq!(link_url, target);
+            assert_eq!(friendly, "long friendly text with spaces");
+        } else {
+            panic!();
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_header() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, "# hello")?;
+        if let Line::Heading(level, s) = x {
+            assert_eq!(level, 1);
+            assert_eq!(s, "hello");
+        } else {
+            panic!();
+        }
+
+        let x = Line::parse(&url, "## hello")?;
+        if let Line::Heading(level, s) = x {
+            assert_eq!(level, 2);
+            assert_eq!(s, "hello");
+        } else {
+            panic!();
+        }
+
+        let x = Line::parse(&url, "### hello")?;
+        if let Line::Heading(level, s) = x {
+            assert_eq!(level, 3);
+            assert_eq!(s, "hello");
+        } else {
+            panic!();
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_header_no_space() -> anyhow::Result<()> {
+        let url = Url::parse("gemini://example.com/")?;
+        let x = Line::parse(&url, "#hello")?;
+        if let Line::Heading(level, s) = x {
+            assert_eq!(level, 1);
+            assert_eq!(s, "hello");
+        } else {
+            panic!();
+        }
+
+        let x = Line::parse(&url, "##hello")?;
+        if let Line::Heading(level, s) = x {
+            assert_eq!(level, 2);
+            assert_eq!(s, "hello");
+        } else {
+            panic!();
+        }
+
+        let x = Line::parse(&url, "###hello")?;
+        if let Line::Heading(level, s) = x {
+            assert_eq!(level, 3);
+            assert_eq!(s, "hello");
+        } else {
+            panic!();
+        }
+
+        Ok(())
+    }
+}
