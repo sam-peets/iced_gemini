@@ -6,7 +6,7 @@ mod ui;
 use iced::Length::Fill;
 use iced::widget::scrollable::AbsoluteOffset;
 use iced::widget::{Row, button, column, container, scrollable, text, text_input};
-use iced::{Element, Font, Task, application};
+use iced::{Element, Font, Subscription, Task, application};
 use url::Url;
 
 use crate::gemini::client::Client;
@@ -262,7 +262,7 @@ impl GeminiClient {
         if let Some(input_request) = &self.input_request {
             let input_modal = input_request.modal();
             let modal = Modal::new(
-                base.into(),
+                base,
                 input_modal.view(
                     &self.input_text,
                     Message::OnChangeInput,

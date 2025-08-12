@@ -9,8 +9,14 @@ pub struct Modal<'a, Message: Clone + 'a> {
 }
 
 impl<'a, Message: Clone + 'a> Modal<'a, Message> {
-    pub fn new(base: Element<'a, Message>, contents: Element<'a, Message>) -> Self {
-        Self { base, contents }
+    pub fn new(
+        base: impl Into<Element<'a, Message>>,
+        contents: impl Into<Element<'a, Message>>,
+    ) -> Self {
+        Self {
+            base: base.into(),
+            contents: contents.into(),
+        }
     }
 
     pub fn view(self) -> Element<'a, Message> {

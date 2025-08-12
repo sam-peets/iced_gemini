@@ -27,6 +27,13 @@ impl Document {
         )
         .into()
     }
+
+    pub fn from_lines<'a>(url: &Url, iter: impl IntoIterator<Item = Line>) -> Self {
+        Document {
+            lines: iter.into_iter().collect(),
+            url: url.clone(),
+        }
+    }
     pub fn parse(url: &Url, doc: &str) -> anyhow::Result<Self> {
         let mut state = ParserMode::Normal;
         let mut lines = Vec::new();

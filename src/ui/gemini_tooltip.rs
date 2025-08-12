@@ -9,8 +9,14 @@ pub struct GeminiTooltip<'a, Message: Clone + 'a> {
 }
 
 impl<'a, Message: Clone> GeminiTooltip<'a, Message> {
-    pub fn new(contents: Element<'a, Message>, tooltip: Element<'a, Message>) -> Self {
-        Self { contents, tooltip }
+    pub fn new(
+        contents: impl Into<Element<'a, Message>>,
+        tooltip: impl Into<Element<'a, Message>>,
+    ) -> Self {
+        Self {
+            contents: contents.into(),
+            tooltip: tooltip.into(),
+        }
     }
 
     pub fn view(self) -> Element<'a, Message> {

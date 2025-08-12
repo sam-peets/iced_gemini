@@ -43,6 +43,6 @@ impl<Message: Clone> GeminiLink<Message> {
             })
             .on_press((self.on_press)(&self.url));
         let tooltip = GeminiText::new(&tooltip_host).view();
-        GeminiTooltip::new(contents.into(), tooltip).view()
+        GeminiTooltip::new(contents, tooltip).view()
     }
 }

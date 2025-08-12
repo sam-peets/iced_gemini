@@ -1,3 +1,5 @@
+use std::hint::unreachable_unchecked;
+
 use iced::widget::image::Handle;
 use rustls::crypto::CryptoProvider;
 use thiserror::Error;
@@ -64,6 +66,17 @@ impl Client {
 
                 Message::Loaded(url, Some(document))
             }
+            (mime::TEXT, _) => {
+                let utf8_body = match String::from_utf8(body) {
+                    Ok(x) => x,
+                    Err(e) => {
+                        return Message::Error(format!("body contains bad utf8 data: {e:?}"));
+                    }
+                };
+
+                let document = Document::from_lines(&url, [Line::PreFormatted(utf8_body)]);
+                Message::Loaded(url, Some(document))
+            }
             (mime::IMAGE, _) => {
                 let handle = Handle::from_bytes(body);
                 let doc = Document {
@@ -84,8 +97,15 @@ impl Client {
 
         match response.status {
             Status::Success => Client::success(url, response),
-            Status::InputExpected => Message::InputExpected(url, response),
-            _ => Message::Error(format!("got bad status: {response:?}")),
+            // TODO -> blur the input on the client for sensitive input
+            Status::InputExpected | Status::SensitiveInput => Message::InputExpected(url, response),
+            Status::ClientCertificate => todo!(),
+            Status::CertificateNotAuthorized => todo!(),
+            Status::CertificateNotValid => todo!(),
+            _ => Message::Error(format!(
+                "Error status: {:?}: {:?}",
+                response.status, response.ctx
+            )),
         }
     }
 
